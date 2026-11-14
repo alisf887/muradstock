@@ -5,7 +5,6 @@ import { now0 } from "../lib/dates.js";
 import { restoreFile } from "../services/backup.js";
 import { render, rerenderKeep } from "../views/index.js";
 import { isOwner } from "../auth/session.js";
-import { lookup } from "../services/staff.js";
 
 export function bindChange() {
   document.addEventListener("change", (e) => {
@@ -18,7 +17,7 @@ export function bindChange() {
     if (el.hasAttribute("data-restore")) { if (el.files && el.files[0]) restoreFile(el.files[0], render); el.value = ""; return; }
     const cq = el.getAttribute("data-cq"), cp = el.getAttribute("data-cp"), set = el.getAttribute("data-set");
     if (cq) {
-      const l = ui.cart.find((x) => x.pid === cq), p = lookup(cq);
+      const l = ui.cart.find((x) => x.pid === cq), p = prod(cq);
       if (l && p) { const n = Math.floor(num(el.value)); if (n <= 0) ui.cart = ui.cart.filter((x) => x !== l); else l.qty = Math.min(n, p.qty); rerenderKeep(); }
     } else if (cp) {
       const l2 = ui.cart.find((x) => x.pid === cp);

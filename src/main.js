@@ -8,11 +8,10 @@ import { supabase } from "./lib/supabase.js";
 import { loadSession, isOwner } from "./auth/session.js";
 import { showLogin } from "./auth/loginView.js";
 import { migrate } from "./state/migrate.js";
-import { applyTheme, toast } from "./lib/dom.js";
-import { startOwnerSync } from "./services/sync.js";
-import { refreshStaff } from "./services/staff.js";
+import { applyTheme } from "./lib/dom.js";
 import { initDownloads } from "./reports/export.js";
 import { render, rerenderKeep } from "./views/index.js";
+import { startOwnerSync, startSalesSync, loadCatalogForSales } from "./services/remote.js";
 import { bindInput } from "./events/input.js";
 import { bindChange } from "./events/change.js";
 import { bindClick } from "./events/click.js";
@@ -20,25 +19,17 @@ import { bindClick } from "./events/click.js";
 let started = false;
 
 /** Runs once, only after a valid login. */
-function startApp() {
+async function startApp() {
   if (started) return;
   started = true;
-  migrate();
   applyTheme();
   initDownloads();
   bindInput();
   bindChange();
   bindClick();
+  if (isOwner()) { migrate(); startOwnerSync(rerenderKeep); }
+  else { await loadCatalogForSales(); startSalesSync(rerenderKeep); }
   render();
-  if (isOwner()) {
-    // Pull sales and purchases from sales people, and share stock with them.
-    startOwnerSync(supabase, (info) => {
-      if (info.error) toast("Sync problem: " + info.error);
-      else { toast("New sales or purchases from your team were added."); rerenderKeep(); }
-    });
-  } else {
-    refreshStaff().then(rerenderKeep);
-  }
 }
 
 async function boot() {

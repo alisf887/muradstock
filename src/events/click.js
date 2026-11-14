@@ -15,9 +15,7 @@ import { backupFile, backupJson } from "../services/backup.js";
 import { buildCsv, exportCsv } from "../reports/csv.js";
 import { exportReport } from "../reports/export.js";
 import { isOwner, signOut } from "../auth/session.js";
-import { supabase } from "../lib/supabase.js";
-import { staffAddToCart, staffComplete, staffPurchase, refreshStaff, lookup } from "../services/staff.js";
-import { scheduleOwnerSync } from "../services/sync.js";
+import { completeSaleRemote } from "../services/remote.js";
 
 /** "Tap again to confirm" pattern for destructive buttons. */
 function twice(key, fn) {
@@ -25,24 +23,22 @@ function twice(key, fn) {
   else { ui.confirmKey = key; rerenderKeep(); }
 }
 /** Services return true when state changed; then redraw. */
-const done = (ok) => { if (ok) { render(); if (isOwner()) scheduleOwnerSync(); } };
+const done = (ok) => { if (ok) render(); };
 
 /** Actions a sales person may use. Everything else is owner-only. */
-const SALES_OK = new Set(["nav", "lang", "theme", "signout", "addcart", "cinc", "cdec", "method", "complete", "addpur", "clearpur", "refresh"]);
+const SALES_OK = new Set(["nav", "lang", "theme", "signout", "addcart", "cinc", "cdec", "method", "complete"]);
 
 /** action name -> handler(id, v, button) */
 const ACTIONS = {
   signout() { signOut(); },
   nav(id, v) {
-    if (!isOwner() && v !== "sell" && v !== "buy") return;
+    if (!isOwner() && v !== "sell") return;
     ui.tab = v; ui.confirmKey = null;
     if (v !== "stock" && ui.editPid) { ui.editPid = null; clearDraft(PF); }
     if (v !== "credit" && ui.editCid) { ui.editCid = null; clearDraft(["c_name", "c_phone"]); }
     if (v !== "buy" && ui.editPur) { ui.editPur = null; clearDraft(["b_item", "b_qty", "b_cost"]); }
     render();
-    if (!isOwner() && v === "sell") refreshStaff().then(rerenderKeep);
   },
-  refresh() { refreshStaff().then(rerenderKeep); },
   lang() { toggleLang(); rerenderKeep(); },
   theme() { pref.theme = isDark() ? "light" : "dark"; savePref(); applyTheme(); rerenderKeep(); },
 
@@ -54,15 +50,15 @@ const ACTIONS = {
   addmove() { done(addMove()); },
 
   /* sell */
-  addcart(id) { if (isOwner()) addToCart(id); else staffAddToCart(id); render(); },
-  cinc(id) { const l = ui.cart.find((x) => x.pid === id), p = lookup(id); if (l && p && l.qty < p.qty) l.qty++; rerenderKeep(); },
+  addcart(id) { addToCart(id); render(); },
+  cinc(id) { const l = ui.cart.find((x) => x.pid === id), p = prod(id); if (l && p && l.qty < p.qty) l.qty++; rerenderKeep(); },
   cdec(id) { const l = ui.cart.find((x) => x.pid === id); if (l) { l.qty--; if (l.qty <= 0) ui.cart = ui.cart.filter((x) => x !== l); } rerenderKeep(); },
   method(id, v) { ui.method = v; rerenderKeep(); },
-  complete() { if (isOwner()) done(completeSale()); else staffComplete(rerenderKeep); },
+  complete() { if (isOwner()) done(completeSale()); else completeSaleRemote().then(done); },
   voidsale(id) { twice("sale:" + id, () => done(voidSale(id))); },
 
   /* buy */
-  addpur() { if (isOwner()) done(addPurchaseRow()); else staffPurchase(rerenderKeep); },
+  addpur() { done(addPurchaseRow()); },
   clearpur() { clearDraft(["b_item", "b_qty", "b_cost", "b_sup", "b_rno", "b_date"]); rerenderKeep(); },
   cancelpur() { cancelPurEdit(); render(); },
   editpur(id) { done(startPurEdit(id)); },

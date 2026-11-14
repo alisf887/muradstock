@@ -3,13 +3,15 @@ import { ui } from "../state/ui.js";
 import { t } from "../i18n/index.js";
 import { esc, fmt, money } from "../lib/format.js";
 import { head, empty, field } from "./components.js";
+import { isOwner } from "../auth/session.js";
+import { mySales } from "../services/remote.js";
 
 const METHOD = { cash: "cash", momo: "momo", credit: "creditm" };
 
 export function sell() {
   let h = head("sell");
   const avail = S.products.filter((p) => p.qty > 0);
-  if (!S.products.length) return h + empty();
+  if (!S.products.length) return h + (isOwner() ? empty() : '<div class="card"><p class="meta">No products available yet. Ask the owner to add stock.</p></div>');
   let total = 0;
   ui.cart.forEach((l) => { total += l.qty * l.price; });
   h += '<div class="grid2"><div class="card"><h2>' + t("search") + '</h2><input id="srch" data-d="1" type="search" placeholder="' + t("search") + '" style="margin-bottom:8px">';
@@ -29,7 +31,7 @@ export function sell() {
       const p = prod(l.pid); if (!p) return;
       h += '<div class="item"><div class="grow"><div class="name">' + esc(p.name) + '</div><div class="meta num">' + money(l.qty * l.price) + "</div></div>" +
         '<div class="qty"><button data-act="cdec" data-id="' + l.pid + '" aria-label="-">−</button><input data-cq="' + l.pid + '" type="number" inputmode="decimal" min="0" max="' + p.qty + '" value="' + l.qty + '" aria-label="' + t("qty") + '"><button data-act="cinc" data-id="' + l.pid + '" aria-label="+">+</button></div>' +
-        '<div style="width:92px"><input data-cp="' + l.pid + '" type="number" inputmode="decimal" min="0" value="' + l.price + '" aria-label="' + t("price") + '"></div></div>';
+        '<div style="width:92px"><input data-cp="' + l.pid + '" type="number" inputmode="decimal" min="0" value="' + l.price + '"' + (isOwner() ? "" : " readonly") + ' aria-label="' + t("price") + '"></div></div>';
     });
     h += "</div>";
   }
@@ -42,14 +44,14 @@ export function sell() {
       field("s_newcust", t("or_new"), "text") + "</div>";
   }
   h += '<div style="margin-top:14px"><button class="btn" data-act="complete" ' + (ui.cart.length ? "" : "disabled") + ">" + t("complete_sale") + "</button></div></div></div>";
-  const rs = S.sales.slice().reverse().slice(0, 8);
+  const rs = isOwner() ? S.sales.slice().reverse().slice(0, 8) : mySales;
   if (rs.length) {
     h += '<div class="card"><h2>' + t("recent_sales") + '</h2><div class="list">';
     rs.forEach((s) => {
       const armed = ui.confirmKey === "sale:" + s.id;
       h += '<div class="item"><div class="grow' + (s.void ? " void" : "") + '"><div class="name">#' + s.no + " · " + s.d + '</div><div class="meta">' + s.items.map((i) => esc(i.name) + " ×" + fmt(i.qty)).join(", ") + " · " + t(METHOD[s.method] || "cash") + (s.cname ? " · " + esc(s.cname) : "") + (s.by ? " · " + esc(s.by) : "") + "</div></div>" +
         '<div class="num' + (s.void ? " void" : "") + '">' + money(s.total) + "</div>" +
-        (s.void ? '<span class="badge b-crit">' + t("voided") + "</span>" : '<button class="btn ' + (armed ? "danger" : "ghost") + ' sm" data-act="voidsale" data-id="' + s.id + '">' + (armed ? t("confirm_void") : t("void")) + "</button>") + "</div>";
+        (s.void ? '<span class="badge b-crit">' + t("voided") + "</span>" : !isOwner() ? "" : '<button class="btn ' + (armed ? "danger" : "ghost") + ' sm" data-act="voidsale" data-id="' + s.id + '">' + (armed ? t("confirm_void") : t("void")) + "</button>") + "</div>";
     });
     h += "</div></div>";
   }

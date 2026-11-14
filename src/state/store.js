@@ -5,8 +5,11 @@ export const PKEY = "stockledger.pref";
 export const S = {
   products: [], customers: [], sales: [], purchases: [], payments: [], orders: [],
   log: [], moves: [], returns: [], vat: 0.15, biz: { name: "", tin: "", period: "" },
-  mig: false, seq: 1, rno: 1, pono: 1
+  mig: false, seq: 1, rno: 1, pono: 1,
+  applied: []            // ids of sales already received from sales people
 };
+/** persist=false for sales people (nothing is written to this browser); afterSave is set for the owner. */
+export const hooks = { persist: true, afterSave: null };
 /** UI preferences (language, theme). */
 export const pref = { lang: "en", theme: null };
 
@@ -19,7 +22,11 @@ try {
   if (pr) Object.assign(pref, JSON.parse(pr));
 } catch (e) {}
 
-export function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+export function save() {
+  if (!hooks.persist) return;
+  try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
+  if (hooks.afterSave) hooks.afterSave();
+}
 export function savePref() { try { localStorage.setItem(PKEY, JSON.stringify(pref)); } catch (e) {} }
 export const uid = () => "i" + (S.seq++).toString(36);
 

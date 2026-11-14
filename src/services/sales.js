@@ -3,7 +3,8 @@ import { ui } from "../state/ui.js";
 import { t } from "../i18n/index.js";
 import { toast } from "../lib/dom.js";
 import { r2, money } from "../lib/format.js";
-import { today } from "../lib/dates.js";
+import { today, dkey } from "../lib/dates.js";
+import { auth } from "../auth/session.js";
 import { mv } from "./movements.js";
 
 export function addToCart(pid) {
@@ -30,7 +31,7 @@ export function completeSale() {
     total += q * l.price; cogs += q * p.cost; p.qty -= q; mv(p.id, "sale", -q, today(), "Sale #" + S.rno);
   });
   if (!items.length) { toast(t("e_cart")); return false; }
-  const sale = { id: uid(), no: S.rno++, ts: Date.now(), d: today(), items, method: ui.method, cid, cname, total: r2(total), cogs: r2(cogs), void: false };
+  const sale = { id: uid(), no: S.rno++, ts: Date.now(), d: today(), items, method: ui.method, cid, cname, total: r2(total), cogs: r2(cogs), void: false, by: auth.profile ? auth.profile.full_name : "" };
   S.sales.push(sale);
   if (cid) cust(cid).balance = r2(cust(cid).balance + sale.total);
   log("Sale #" + sale.no + ": " + money(sale.total));
@@ -46,5 +47,32 @@ export function voidSale(id) {
   if (s.cid && cust(s.cid)) cust(s.cid).balance = Math.max(0, r2(cust(s.cid).balance - s.total));
   s.void = true; s.voidTs = Date.now();
   log("Voided sale #" + s.no + ": " + money(s.total)); save(); toast(t("t_voided"));
+  return true;
+}
+
+/** Owner side: record a sale that a sales person saved in Supabase. Returns true if recorded. */
+export function applyRemoteSale(row) {
+  const d = dkey(new Date(row.created_at));
+  const items = []; let total = 0, cogs = 0;
+  (row.items || []).forEach((it) => {
+    const q = Number(it.qty), price = Number(it.price);
+    if (!(q > 0)) return;
+    const p = prod(it.pid), cost = p ? p.cost : 0;
+    items.push({ pid: it.pid, name: p ? p.name : (it.name || "?"), unit: p ? p.unit : "", cat: p ? p.category || "" : "", sku: p ? p.sku || "" : "", qty: q, price, cost });
+    total += q * price; cogs += q * cost;
+    if (p) { p.qty = Math.max(0, r2(p.qty - q)); mv(p.id, "sale", -q, d, "Sale #" + S.rno); }
+  });
+  if (!items.length) return false;
+  let cid = null, cname = "";
+  if (row.method === "credit") {
+    const nm = String(row.customer_name || "").trim();
+    let c = S.customers.find((x) => x.name.trim().toLowerCase() === nm.toLowerCase());
+    if (!c) { c = { id: uid(), name: nm, phone: "", balance: 0 }; S.customers.push(c); log("Added customer: " + nm); }
+    cid = c.id; cname = c.name;
+  }
+  const sale = { id: uid(), no: S.rno++, ts: Date.parse(row.created_at), d, items, method: row.method, cid, cname, total: r2(total), cogs: r2(cogs), void: false, by: row.sold_by_name || "" };
+  S.sales.push(sale);
+  if (cid) cust(cid).balance = r2(cust(cid).balance + sale.total);
+  log("Sale #" + sale.no + " by " + sale.by + ": " + money(sale.total));
   return true;
 }
