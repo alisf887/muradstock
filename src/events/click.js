@@ -14,6 +14,7 @@ import { addMove } from "../services/movements.js";
 import { backupFile, backupJson } from "../services/backup.js";
 import { buildCsv, exportCsv } from "../reports/csv.js";
 import { exportReport } from "../reports/export.js";
+import { isOwner, signOut } from "../auth/session.js";
 
 /** "Tap again to confirm" pattern for destructive buttons. */
 function twice(key, fn) {
@@ -23,9 +24,14 @@ function twice(key, fn) {
 /** Services return true when state changed; then redraw. */
 const done = (ok) => { if (ok) render(); };
 
+/** Actions a sales person may use. Everything else is owner-only. */
+const SALES_OK = new Set(["nav", "lang", "theme", "signout", "addcart", "cinc", "cdec", "method", "complete"]);
+
 /** action name -> handler(id, v, button) */
 const ACTIONS = {
+  signout() { signOut(); },
   nav(id, v) {
+    if (!isOwner() && v !== "sell") return;
     ui.tab = v; ui.confirmKey = null;
     if (v !== "stock" && ui.editPid) { ui.editPid = null; clearDraft(PF); }
     if (v !== "credit" && ui.editCid) { ui.editCid = null; clearDraft(["c_name", "c_phone"]); }
@@ -94,7 +100,9 @@ const ACTIONS = {
 export function bindClick() {
   document.addEventListener("click", (e) => {
     const b = e.target.closest("[data-act]"); if (!b) return;
-    const fn = ACTIONS[b.getAttribute("data-act")];
+    const act = b.getAttribute("data-act");
+    if (!isOwner() && !SALES_OK.has(act)) return;
+    const fn = ACTIONS[act];
     if (fn) fn(b.getAttribute("data-id"), b.getAttribute("data-v"), b);
   });
 }

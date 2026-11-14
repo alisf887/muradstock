@@ -1,5 +1,6 @@
 import { pref } from "../state/store.js";
 import { ui } from "../state/ui.js";
+import { auth, visibleTabs } from "../auth/session.js";
 import { t } from "../i18n/index.js";
 import { isDark, filterList } from "../lib/dom.js";
 import { ico } from "./components.js";
@@ -17,9 +18,13 @@ export const TABS = ["home", "sell", "buy", "stock", "alerts", "credit", "profit
 
 /** Redraw the whole screen from state. Form values come back from ui.draft. */
 export function render() {
-  document.getElementById("nav").innerHTML = TABS.map((k) => '<button data-act="nav" data-v="' + k + '"' + (k === ui.tab ? ' aria-current="page"' : "") + ">" + ico(k) + "<span>" + t(k) + "</span></button>").join("");
+  const tabs = visibleTabs(TABS);
+  if (!tabs.includes(ui.tab)) ui.tab = tabs[0];
+  document.getElementById("nav").innerHTML = tabs.length < 2 ? "" : tabs.map((k) => '<button data-act="nav" data-v="' + k + '"' + (k === ui.tab ? ' aria-current="page"' : "") + ">" + ico(k) + "<span>" + t(k) + "</span></button>").join("");
   document.getElementById("main").innerHTML = VIEWS[ui.tab]();
   document.querySelectorAll("#main [data-d]").forEach((el) => { if (ui.draft[el.id] !== undefined) el.value = ui.draft[el.id]; });
+  const ub = document.getElementById("userBtn");
+  if (auth.profile) { ub.textContent = auth.profile.full_name + " · Sign out"; ub.hidden = false; }
   document.getElementById("langBtn").textContent = pref.lang === "en" ? "አማርኛ" : "English";
   document.getElementById("themeBtn").textContent = isDark() ? "Light" : "Dark";
   document.documentElement.lang = pref.lang;
