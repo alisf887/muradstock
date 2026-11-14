@@ -5,12 +5,14 @@ import "./styles/report.css";
 import "./styles/auth.css";
 
 import { supabase } from "./lib/supabase.js";
-import { loadSession } from "./auth/session.js";
+import { loadSession, isOwner } from "./auth/session.js";
 import { showLogin } from "./auth/loginView.js";
 import { migrate } from "./state/migrate.js";
-import { applyTheme } from "./lib/dom.js";
+import { applyTheme, toast } from "./lib/dom.js";
+import { startOwnerSync } from "./services/sync.js";
+import { refreshStaff } from "./services/staff.js";
 import { initDownloads } from "./reports/export.js";
-import { render } from "./views/index.js";
+import { render, rerenderKeep } from "./views/index.js";
 import { bindInput } from "./events/input.js";
 import { bindChange } from "./events/change.js";
 import { bindClick } from "./events/click.js";
@@ -28,6 +30,15 @@ function startApp() {
   bindChange();
   bindClick();
   render();
+  if (isOwner()) {
+    // Pull sales and purchases from sales people, and share stock with them.
+    startOwnerSync(supabase, (info) => {
+      if (info.error) toast("Sync problem: " + info.error);
+      else { toast("New sales or purchases from your team were added."); rerenderKeep(); }
+    });
+  } else {
+    refreshStaff().then(rerenderKeep);
+  }
 }
 
 async function boot() {

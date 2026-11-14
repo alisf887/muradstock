@@ -4,8 +4,8 @@ import { supabase, configured } from "../lib/supabase.js";
 export const auth = { user: null, profile: null };
 
 export const isOwner = () => auth.profile?.role === "owner";
-/** Owner sees every tab; a sales person sees only Sell. */
-export const visibleTabs = (all) => (isOwner() ? all : all.filter((k) => k === "sell"));
+/** Owner sees every tab; a sales person sees only Sell and Buy. */
+export const visibleTabs = (all) => (isOwner() ? all : all.filter((k) => k === "sell" || k === "buy"));
 
 const NOT_CONFIGURED = "Supabase is not configured. Check .env, then restart npm run dev.";
 

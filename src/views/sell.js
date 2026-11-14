@@ -47,7 +47,7 @@ export function sell() {
     h += '<div class="card"><h2>' + t("recent_sales") + '</h2><div class="list">';
     rs.forEach((s) => {
       const armed = ui.confirmKey === "sale:" + s.id;
-      h += '<div class="item"><div class="grow' + (s.void ? " void" : "") + '"><div class="name">#' + s.no + " · " + s.d + '</div><div class="meta">' + s.items.map((i) => esc(i.name) + " ×" + fmt(i.qty)).join(", ") + " · " + t(METHOD[s.method] || "cash") + (s.cname ? " · " + esc(s.cname) : "") + "</div></div>" +
+      h += '<div class="item"><div class="grow' + (s.void ? " void" : "") + '"><div class="name">#' + s.no + " · " + s.d + '</div><div class="meta">' + s.items.map((i) => esc(i.name) + " ×" + fmt(i.qty)).join(", ") + " · " + t(METHOD[s.method] || "cash") + (s.cname ? " · " + esc(s.cname) : "") + (s.by ? " · " + esc(s.by) : "") + "</div></div>" +
         '<div class="num' + (s.void ? " void" : "") + '">' + money(s.total) + "</div>" +
         (s.void ? '<span class="badge b-crit">' + t("voided") + "</span>" : '<button class="btn ' + (armed ? "danger" : "ghost") + ' sm" data-act="voidsale" data-id="' + s.id + '">' + (armed ? t("confirm_void") : t("void")) + "</button>") + "</div>";
     });
